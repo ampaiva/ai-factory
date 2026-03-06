@@ -18,90 +18,120 @@ Tested on Debian / Ubuntu.
 
 Run:
 
+```shell
 curl -fsSL https://get.docker.com | sh
+```
 
 Add your user to the docker group:
-    
+
+```shell
 sudo usermod -aG docker $USER
+```
 
 Reload the session:
 
+```shell
 newgrp docker
+```
 
 Verify:
 
+```shell
 docker --version
 docker compose version
+```
 
 ---
 
 ## 2. Install Git
 
+```shell
 sudo apt update
 sudo apt install -y git
+```
 
 Verify:
 
+```shell
 git --version
+```
 
 ---
 
 ## 3. Clone the Repository
 
+```shell
 git clone https://github.com/ampaiva/ai-factory.git
-
 cd ai-factory
+```
 
 ---
 
 ## 4. Configure Environment Variables
 
+```shell
 cp .env.example .env
+```
 
 Edit:
 
+```shell
 nano .env
+```
 
 Example:
 
+```
 GITHUB_USER=your-user
 ANTHROPIC_API_KEY=your_key_here
 OPENAI_API_KEY=
 WORKSPACE=/workspace
+```
 
 ---
 
 ## 5. Start the AI Factory
 
+```shell
 docker compose up -d
+```
 
 Verify:
 
+```shell
 docker ps
+```
 
 You should see the container named:
 
+```
 ai-factory
+```
 
 ---
 
 ## 6. Enter the Container
 
+```shell
 docker exec -it ai-factory bash
+```
 
 ---
 
 ## 7. Verify Tools
 
+```shell
 git --version
 gh --version
 python3 --version
 node --version
+```
 
 ---
 
 # Project Structure
 
+```
 ai-factory
 │
 ├─ docker-compose.yml
@@ -117,6 +147,7 @@ ai-factory
 │
 └─ workspace/
     └─ README.md
+```
 
 ---
 
