@@ -1,0 +1,6 @@
+.env
+node_modules
+workspace/*
+!workspace/README.md
+__pycache__
+*.log

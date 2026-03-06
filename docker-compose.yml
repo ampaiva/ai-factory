@@ -1,0 +1,14 @@
+version: "3.9"
+
+services:
+  ai-runner:
+    image: ubuntu:22.04
+    container_name: ai-factory
+    volumes:
+      - ./workspace:/workspace
+      - ./agents:/agents
+    env_file:
+      - .env
+    tty: true
+    stdin_open: true
+    command: sleep infinity
