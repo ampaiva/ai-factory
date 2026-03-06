@@ -4,3 +4,4 @@ workspace/*
 !workspace/README.md
 __pycache__
 *.log
+/.idea/*
