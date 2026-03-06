@@ -21,7 +21,7 @@ Run:
 curl -fsSL https://get.docker.com | sh
 
 Add your user to the docker group:
-
+    
 sudo usermod -aG docker $USER
 
 Reload the session:
@@ -48,7 +48,7 @@ git --version
 
 ## 3. Clone the Repository
 
-git clone https://github.com/YOUR_USERNAME/ai-factory.git
+git clone https://github.com/ampaiva/ai-factory.git
 
 cd ai-factory
 
