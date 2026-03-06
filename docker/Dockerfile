@@ -18,3 +18,8 @@ RUN echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/g
 RUN apt update && apt install -y gh
 
 WORKDIR /workspace
+
+COPY requirements.txt .
+ENV PIP_NO_CACHE_DIR=1
+RUN pip install --upgrade pip setuptools wheel
+RUN pip install -r requirements.txt

@@ -9,8 +9,7 @@ services:
     container_name: ai-factory
 
     volumes:
-      - ./workspace:/workspace
-      - ./orchestrator:/orchestrator
+      - ./:/workspace
 
     env_file:
       - .env
