@@ -4,12 +4,15 @@ services:
 
   ai-factory:
 
-    build: ./docker
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
 
     container_name: ai-factory
 
     volumes:
       - ./:/workspace
+      - ~/.ssh:/root/.ssh:ro
 
     env_file:
       - .env

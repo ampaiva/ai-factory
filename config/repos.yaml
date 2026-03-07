@@ -1,7 +1,7 @@
 repositories:
 
   - name: open-finance
-    url: https://github.com/ampaiva/openfinance
+    url: git@github.com:ampaiva/openfinance.git
 
   - name: bar-do-boy
-    url: https://github.com/ampaiva/bar-do-boy
+    url: git@github.com:ampaiva/bar-do-boy.git
