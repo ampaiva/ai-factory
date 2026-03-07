@@ -16,19 +16,19 @@ get_reset_wait_time() {
     return
   fi
 
-  echo "Reset detectado: $RESET_FULL"
+  echo "Reset detectado: $RESET_FULL" >&2
 
   TIMEZONE=$(echo "$RESET_FULL" | sed -n 's/.*(\(.*\)).*/\1/p')
   DATE_PART=$(echo "$RESET_FULL" | sed 's/ (.*)//')
 
   if [[ ! "$DATE_PART" =~ [A-Za-z]{3} ]]; then
-    TODAY=$(TZ="${TIMEZONE:-UTC}" date "+%b %d")
+    TODAY=$(date "+%b %d")
     DATE_PART="$TODAY, $DATE_PART"
   fi
 
-  DATE_PART=$(echo "$DATE_PART" | sed -E 's/([0-9])([ap]m)/\1:00\2/')
+  DATE_PART=$(echo "$DATE_PART" | sed -E 's/\b([0-9]{1,2})([ap]m)\b/\1:00\2/')
 
-  TARGET=$(TZ="${TIMEZONE:-UTC}" date -d "$DATE_PART" +%s 2>/dev/null || true)
+  TARGET=$(date -d "$DATE_PART $TIMEZONE" +%s 2>/dev/null)
 
   if [ -z "${TARGET:-}" ]; then
     echo "ERROR"
@@ -38,10 +38,6 @@ get_reset_wait_time() {
   NOW=$(date +%s)
 
   WAIT=$((TARGET - NOW + 60))
-
-  if [ "$WAIT" -lt 0 ]; then
-    WAIT=60
-  fi
 
   echo "$WAIT"
 }
