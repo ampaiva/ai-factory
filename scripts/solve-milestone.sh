@@ -17,17 +17,25 @@ get_reset_wait_time() {
     return
   fi
 
-  # separa timezone
   TIMEZONE=$(echo "$RESET_FULL" | sed -n 's/.*(\(.*\)).*/\1/p')
   DATE_PART=$(echo "$RESET_FULL" | sed 's/ (.*)//')
 
-  # se não tiver mês/dia → assume hoje
+  # Se não tiver mês/dia → assumir hoje
   if [[ ! "$DATE_PART" =~ [A-Za-z]{3} ]]; then
     TODAY=$(TZ="$TIMEZONE" date "+%b %d")
     DATE_PART="$TODAY, $DATE_PART"
   fi
 
-  TARGET=$(TZ="$TIMEZONE" date -d "$DATE_PART" +%s)
+  # Normalizar horário "7pm" → "7:00pm"
+  DATE_PART=$(echo "$DATE_PART" | sed -E 's/([0-9])([ap]m)/\1:00\2/')
+
+  TARGET=$(TZ="$TIMEZONE" date -d "$DATE_PART" +%s 2>/dev/null)
+
+  if [ -z "$TARGET" ]; then
+    echo "ERROR"
+    return
+  fi
+
   NOW=$(date +%s)
 
   WAIT=$((TARGET - NOW + 60))
