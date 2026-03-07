@@ -1,5 +1,3 @@
-version: "3.9"
-
 services:
 
   ai-factory:
@@ -12,10 +10,15 @@ services:
 
     volumes:
       - ./:/workspace
-      - ~/.ssh:/home/factory/.ssh:ro
-      - ~/.claude-factory:/home/factory/.claude
+      - ai_factory_home:/home/factory
+      - claude:/home/factory/.claude
 
     env_file:
       - .env
 
     tty: true
+
+
+volumes:
+  ai_factory_home:
+  claude:

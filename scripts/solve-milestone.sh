@@ -212,6 +212,12 @@ while true; do
 
   if [ $CLAUDE_EXIT -ne 0 ]; then
 
+    if echo "$CLAUDE_OUTPUT" | grep -q "Not logged in"; then
+      echo ""
+      echo "Claude não está logado. Abortando execução."
+      exit 1
+    fi
+
     if echo "$CLAUDE_OUTPUT" | grep -q "You've hit your limit"; then
 
       echo ""

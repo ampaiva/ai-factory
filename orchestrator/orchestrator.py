@@ -10,18 +10,17 @@ with open("config/repos.yaml") as f:
 
 for repo in config["repositories"]:
 
-    path = f"/repos/{repo['name']}"
+    path = f"repos/{repo['name']}"
 
-    if not os.path.exists(path):
-        r = subprocess.run(["git", "clone", repo["url"], path])
+    if not os.path.exists(os.path.join(path, ".git")):
+        r = subprocess.run(["gh", "repo", "clone", repo["repo"], path])
         if r.returncode != 0:
-            print(f"[ERROR] git clone failed for {repo['name']}")
+            print(f"[ERROR] clone failed for {repo['name']}")
             continue
 
-    r = subprocess.run(["git", "-C", path, "pull"])
+    r = subprocess.run(["gh", "repo", "sync"], cwd=path)
     if r.returncode != 0:
-        print(f"[ERROR] git pull failed for {repo['name']}")
-
+        print(f"[ERROR] repo sync failed for {repo['name']}")
     result = subprocess.run(
         ["gh", "issue", "list"],
         cwd=path,
