@@ -9,20 +9,26 @@ get_reset_wait_time() {
 
   CLAUDE_OUTPUT="$1"
 
-  RESET_STR=$(echo "$CLAUDE_OUTPUT" | sed -n 's/.*resets \(.*\) (America\/Sao_Paulo).*/\1/p' | head -1)
+  RESET_FULL=$(echo "$CLAUDE_OUTPUT" | sed -n 's/.*resets \(.*\)).*/\1)/p' | head -1)
+  echo "Reset detectado: $RESET_FULL"
 
-  if [ -z "$RESET_STR" ]; then
+  if [ -z "$RESET_FULL" ]; then
     echo "ERROR"
     return
   fi
 
-  if [[ ! "$RESET_STR" =~ [A-Za-z]{3} ]]; then
-    TODAY=$(TZ=America/Sao_Paulo date "+%b %d")
-    RESET_STR="$TODAY, $RESET_STR"
+  # separa timezone
+  TIMEZONE=$(echo "$RESET_FULL" | sed -n 's/.*(\(.*\)).*/\1/p')
+  DATE_PART=$(echo "$RESET_FULL" | sed 's/ (.*)//')
+
+  # se não tiver mês/dia → assume hoje
+  if [[ ! "$DATE_PART" =~ [A-Za-z]{3} ]]; then
+    TODAY=$(TZ="$TIMEZONE" date "+%b %d")
+    DATE_PART="$TODAY, $DATE_PART"
   fi
 
-  TARGET=$(TZ=America/Sao_Paulo date -d "$RESET_STR" +%s)
-  NOW=$(TZ=America/Sao_Paulo date +%s)
+  TARGET=$(TZ="$TIMEZONE" date -d "$DATE_PART" +%s)
+  NOW=$(date +%s)
 
   WAIT=$((TARGET - NOW + 60))
 
