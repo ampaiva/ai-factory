@@ -17,6 +17,8 @@ RUN echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/g
 
 RUN apt update && apt install -y gh
 
+RUN ssh-keyscan github.com >> /etc/ssh/ssh_known_hosts
+
 WORKDIR /workspace
 
 COPY requirements.txt .
