@@ -34,8 +34,11 @@ run: ## Run the orchestrator from the host (via docker exec)
 
 # --- CONTAINER commands (run these from inside the container) ---
 
-orchestrate: ## Run the orchestrator
+orchestrate: ## Run the orchestrator (update repos + list issues)
 	python orchestrator/orchestrator.py
+
+solve: ## Update repos and solve milestones autonomously with Claude
+	python orchestrator/orchestrator.py --solve
 
 install: ## Install/update Python dependencies
 	pip install -r requirements.txt
