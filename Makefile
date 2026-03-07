@@ -1,32 +1,41 @@
-# --- Host commands ---
+# =============================================================================
+# AI Factory — Makefile
+#
+# HOST commands  : run from your machine (requires Docker)
+# CONTAINER commands : run from inside the container (make enter first)
+# =============================================================================
 
-start:
+.PHONY: start stop restart build enter logs run orchestrate install help
+
+help: ## Show this help
+	@grep -E '^[a-zA-Z_-]+:.*##' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*##"}; {printf "  %-12s %s\n", $$1, $$2}'
+
+# --- HOST commands ---
+
+start: ## Start the container in background
 	docker compose up -d
 
-stop:
+stop: ## Stop the container
 	docker compose down
 
-restart: stop build start
+restart: stop build start ## Rebuild image and restart the container
 
-build:
+build: ## Build the Docker image
 	docker compose build
 
-enter:
+enter: ## Open a bash shell inside the container
 	docker exec -it ai-factory bash
 
-logs:
+logs: ## Tail container logs
 	docker logs -f ai-factory
 
-# Run orchestrator from host (via docker exec)
-run:
+run: ## Run the orchestrator from the host (via docker exec)
 	docker exec ai-factory python /workspace/orchestrator/orchestrator.py
 
-# --- Container commands (run these from inside the container) ---
+# --- CONTAINER commands (run these from inside the container) ---
 
-# python orchestrator/orchestrator.py
-orchestrate:
+orchestrate: ## Run the orchestrator
 	python orchestrator/orchestrator.py
 
-# Install/update Python dependencies
-install:
+install: ## Install/update Python dependencies
 	pip install -r requirements.txt
