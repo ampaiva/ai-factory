@@ -2,16 +2,43 @@
 set -euo pipefail
 
 # Usage:
-#   ./solve-milestone.sh "milestone name"   # autonomous (used by orchestrator)
-#   ./solve-milestone.sh                    # interactive (prompts for milestone)
+#   ./solve-milestone.sh "milestone name"
+#   ./solve-milestone.sh
 
-if [ -n "${1:-}" ]; then
-  MILESTONE="$1"
-else
-  MILESTONES=()
-  while IFS= read -r line; do
-    MILESTONES+=("$line")
-  done < <(gh api repos/:owner/:repo/milestones --jq '.[] | select(.state=="open" and .open_issues > 0) | .title')
+get_reset_wait_time() {
+
+  CLAUDE_OUTPUT="$1"
+
+  RESET_STR=$(echo "$CLAUDE_OUTPUT" | sed -n 's/.*resets \(.*\) (America\/Sao_Paulo).*/\1/p' | head -1)
+
+  if [ -z "$RESET_STR" ]; then
+    echo "ERROR"
+    return
+  fi
+
+  if [[ ! "$RESET_STR" =~ [A-Za-z]{3} ]]; then
+    TODAY=$(TZ=America/Sao_Paulo date "+%b %d")
+    RESET_STR="$TODAY, $RESET_STR"
+  fi
+
+  TARGET=$(TZ=America/Sao_Paulo date -d "$RESET_STR" +%s)
+  NOW=$(TZ=America/Sao_Paulo date +%s)
+
+  WAIT=$((TARGET - NOW + 60))
+
+  if [ "$WAIT" -lt 0 ]; then
+    WAIT=60
+  fi
+
+  echo "$WAIT"
+}
+
+choose_milestone() {
+
+  mapfile -t MILESTONES < <(
+    gh api repos/:owner/:repo/milestones \
+    --jq '.[] | select(.state=="open" and .open_issues > 0) | .title'
+  )
 
   if [ ${#MILESTONES[@]} -eq 0 ]; then
     echo "Nenhum milestone aberto encontrado."
@@ -31,40 +58,86 @@ else
     exit 1
   fi
 
-  MILESTONE="${MILESTONES[$((CHOICE-1))]}"
-fi
+  echo "${MILESTONES[$((CHOICE-1))]}"
+}
+
+fetch_open_issues() {
+
+  gh issue list \
+    --milestone "$1" \
+    --state open \
+    --limit 500 \
+    --json number \
+    --jq 'sort_by(.number) | .[].number'
+}
 
 echo ""
+
+if [ -n "${1:-}" ]; then
+  MILESTONE="$1"
+else
+  MILESTONE=$(choose_milestone)
+fi
+
 echo "Resolvendo issues do milestone: $MILESTONE"
 echo ""
 
-PREV_OPEN=-1
+mapfile -t ISSUES < <(fetch_open_issues "$MILESTONE")
+
+if [ ${#ISSUES[@]} -eq 0 ]; then
+  echo "Nenhuma issue aberta."
+  exit 0
+fi
+
+INDEX=0
+TOTAL=${#ISSUES[@]}
+PREV_OPEN=$TOTAL
 
 while true; do
-  OPEN=$(gh issue list --milestone "$MILESTONE" --state open --json number --jq 'length')
 
-  if [ "$OPEN" -eq 0 ]; then
+  if [ $INDEX -ge $TOTAL ]; then
+
     echo ""
-    echo "✓ Todas as issues de '$MILESTONE' estão resolvidas!"
-    break
+    echo "Rechecando issues abertas..."
+
+    mapfile -t ISSUES < <(fetch_open_issues "$MILESTONE")
+
+    OPEN=${#ISSUES[@]}
+
+    if [ "$OPEN" -eq 0 ]; then
+      echo ""
+      echo "✓ Todas as issues de '$MILESTONE' estão resolvidas!"
+      exit 0
+    fi
+
+    if [ "$OPEN" -eq "$PREV_OPEN" ]; then
+      echo ""
+      echo "✗ Nenhuma issue foi fechada na última sessão. Abortando."
+      exit 1
+    fi
+
+    PREV_OPEN=$OPEN
+    TOTAL=$OPEN
+    INDEX=0
+
+    continue
   fi
 
-  if [ "$OPEN" -eq "$PREV_OPEN" ]; then
-    echo ""
-    echo "✗ Nenhuma issue foi fechada na última sessão. Abortando para evitar loop infinito."
-    exit 1
-  fi
+  ISSUE_NUMBER="${ISSUES[$INDEX]}"
 
-  PREV_OPEN=$OPEN
-
-  ISSUE_NUMBER=$(gh issue list --milestone "$MILESTONE" --state open --json number --jq 'sort_by(.number) | .[0].number')
-  echo "--- Issues abertas: $OPEN — resolvendo #$ISSUE_NUMBER do milestone '$MILESTONE' ---"
+  echo "---------------------------------------"
+  echo "Issue $((INDEX+1)) de $TOTAL → #$ISSUE_NUMBER"
+  echo "---------------------------------------"
   echo ""
 
   TMPFILE=$(mktemp)
 
   set +e
-  env -u CLAUDECODE claude --dangerously-skip-permissions -p "Resolva a issue #$ISSUE_NUMBER. Siga o workflow completo do comando /issue (ler a issue, implementar, criar PR e dar merge)." 2>&1 | tee "$TMPFILE"
+  env -u CLAUDECODE claude \
+    --dangerously-skip-permissions \
+    -p "Resolva a issue #$ISSUE_NUMBER. Siga o workflow completo do comando /issue (ler a issue, implementar, criar PR e dar merge)." \
+    2>&1 | tee "$TMPFILE"
+
   CLAUDE_EXIT=${PIPESTATUS[0]}
   set -e
 
@@ -72,54 +145,48 @@ while true; do
   rm -f "$TMPFILE"
 
   if [ $CLAUDE_EXIT -ne 0 ]; then
-    if echo "$CLAUDE_OUTPUT" | grep -q "You've hit your limit"; then
-      RESET_STR=$(echo "$CLAUDE_OUTPUT" | sed -n 's/.*resets \([0-9]*[ap]m\).*/\1/p' | head -1)
 
-      if [ -z "$RESET_STR" ]; then
-        echo ""
-        echo "✗ Rate limit atingido mas não foi possível extrair o horário de reset. Abortando."
+    if echo "$CLAUDE_OUTPUT" | grep -q "You've hit your limit"; then
+
+      echo ""
+      echo "Rate limit detectado."
+
+      WAIT=$(get_reset_wait_time "$CLAUDE_OUTPUT")
+
+      if [ "$WAIT" = "ERROR" ]; then
+        echo "Não foi possível extrair horário de reset."
         exit 1
       fi
 
-      RESET_HOUR_12=$(echo "$RESET_STR" | sed 's/[ap]m//')
-      RESET_PERIOD=$(echo "$RESET_STR" | grep -o '[ap]m')
-
-      if [ "$RESET_PERIOD" = "pm" ]; then
-        if [ "$RESET_HOUR_12" -eq 12 ]; then
-          RESET_HOUR_24=12
-        else
-          RESET_HOUR_24=$((RESET_HOUR_12 + 12))
-        fi
-      else
-        if [ "$RESET_HOUR_12" -eq 12 ]; then
-          RESET_HOUR_24=0
-        else
-          RESET_HOUR_24=$RESET_HOUR_12
-        fi
-      fi
-
-      SP_HOUR=$(TZ=America/Sao_Paulo date +%H)
-      SP_MIN=$(TZ=America/Sao_Paulo date +%M)
-      SP_SEC=$(TZ=America/Sao_Paulo date +%S)
-
-      ELAPSED=$(( 10#$SP_HOUR * 3600 + 10#$SP_MIN * 60 + 10#$SP_SEC ))
-      TARGET=$(( RESET_HOUR_24 * 3600 ))
-
-      if [ $ELAPSED -lt $TARGET ]; then
-        WAIT=$((TARGET - ELAPSED + 60))
-      else
-        WAIT=$((86400 - ELAPSED + TARGET + 60))
-      fi
-
+      echo "Aguardando $((WAIT/60)) minutos..."
       echo ""
-      echo "Rate limit atingido. Reset às ${RESET_STR} SP. Aguardando $(( WAIT / 60 )) minutos..."
-      sleep $WAIT
-      PREV_OPEN=-1
 
-    else
-      echo ""
-      echo "✗ Sessão Claude falhou (exit $CLAUDE_EXIT). Abortando."
-      exit 1
+      sleep "$WAIT"
+
+      continue
     fi
+
+    echo ""
+    echo "Claude falhou (exit $CLAUDE_EXIT). Pulando issue."
+    echo ""
+
+    INDEX=$((INDEX+1))
+    continue
   fi
+
+  echo ""
+  echo "Verificando se issue foi fechada..."
+
+  STATE=$(gh issue view "$ISSUE_NUMBER" --json state --jq '.state')
+
+  if [ "$STATE" = "CLOSED" ]; then
+    echo "✓ Issue #$ISSUE_NUMBER fechada."
+  else
+    echo "⚠ Issue não foi fechada."
+  fi
+
+  echo ""
+
+  INDEX=$((INDEX+1))
+
 done
