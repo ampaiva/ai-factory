@@ -12,7 +12,8 @@ services:
 
     volumes:
       - ./:/workspace
-      - ~/.ssh:/root/.ssh:ro
+      - ~/.ssh:/home/factory/.ssh:ro
+      - ~/.claude-factory:/home/factory/.claude
 
     env_file:
       - .env

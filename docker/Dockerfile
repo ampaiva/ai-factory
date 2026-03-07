@@ -19,6 +19,14 @@ RUN apt update && apt install -y gh
 
 RUN ssh-keyscan github.com >> /etc/ssh/ssh_known_hosts
 
+# Claude CLI
+RUN npm install -g @anthropic-ai/claude-code
+
+# Non-root user (required by claude --dangerously-skip-permissions)
+RUN useradd -m -s /bin/bash factory
+RUN mkdir -p /repos /workspace /home/factory/.claude && chown -R factory:factory /repos /workspace /home/factory/.claude
+
+USER factory
 WORKDIR /workspace
 
 COPY requirements.txt .
