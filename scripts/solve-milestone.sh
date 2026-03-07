@@ -18,17 +18,44 @@ get_reset_wait_time() {
 
   echo "Reset detectado: $RESET_FULL" >&2
 
-  TIMEZONE=$(echo "$RESET_FULL" | sed -n 's/.*(\(.*\)).*/\1/p')
-  DATE_PART=$(echo "$RESET_FULL" | sed 's/ (.*)//')
+  TZ=$(echo "$RESET_FULL" | sed -n 's/.*(\(.*\)).*/\1/p')
+  PART=$(echo "$RESET_FULL" | sed 's/ (.*)//')
 
-  if [[ ! "$DATE_PART" =~ [A-Za-z]{3} ]]; then
-    TODAY=$(date "+%b %d")
-    DATE_PART="$TODAY, $DATE_PART"
+  MONTH=$(echo "$PART" | awk '{print $1}')
+  DAY=$(echo "$PART" | awk '{print $2}' | tr -d ',')
+
+  TIME=$(echo "$PART" | grep -oE '[0-9]{1,2}[ap]m')
+
+  HOUR=$(echo "$TIME" | sed 's/[ap]m//')
+  AMPM=$(echo "$TIME" | grep -oE '[ap]m')
+
+  if [ "$AMPM" = "pm" ] && [ "$HOUR" -lt 12 ]; then
+    HOUR=$((HOUR+12))
   fi
 
-  DATE_PART=$(echo "$DATE_PART" | sed -E 's/\b([0-9]{1,2})([ap]m)\b/\1:00\2/')
+  if [ "$AMPM" = "am" ] && [ "$HOUR" -eq 12 ]; then
+    HOUR=0
+  fi
 
-  TARGET=$(date -d "$DATE_PART $TIMEZONE" +%s 2>/dev/null)
+  case "$MONTH" in
+    Jan) M=01 ;;
+    Feb) M=02 ;;
+    Mar) M=03 ;;
+    Apr) M=04 ;;
+    May) M=05 ;;
+    Jun) M=06 ;;
+    Jul) M=07 ;;
+    Aug) M=08 ;;
+    Sep) M=09 ;;
+    Oct) M=10 ;;
+    Nov) M=11 ;;
+    Dec) M=12 ;;
+    *) echo "ERROR"; return ;;
+  esac
+
+  YEAR=$(date +%Y)
+
+  TARGET=$(date -d "$YEAR-$M-$DAY $HOUR:00:00 $TZ" +%s 2>/dev/null)
 
   if [ -z "${TARGET:-}" ]; then
     echo "ERROR"
