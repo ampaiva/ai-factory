@@ -9,29 +9,28 @@ get_reset_wait_time() {
 
   CLAUDE_OUTPUT="$1"
 
-  RESET_FULL=$(echo "$CLAUDE_OUTPUT" | sed -n 's/.*resets \(.*\)).*/\1)/p' | head -1)
-  echo "Reset detectado: $RESET_FULL"
+  RESET_FULL=$(echo "$CLAUDE_OUTPUT" | grep -oE 'resets .*' | sed 's/resets //' | head -1)
 
-  if [ -z "$RESET_FULL" ]; then
+  if [ -z "${RESET_FULL:-}" ]; then
     echo "ERROR"
     return
   fi
 
+  echo "Reset detectado: $RESET_FULL"
+
   TIMEZONE=$(echo "$RESET_FULL" | sed -n 's/.*(\(.*\)).*/\1/p')
   DATE_PART=$(echo "$RESET_FULL" | sed 's/ (.*)//')
 
-  # Se não tiver mês/dia → assumir hoje
   if [[ ! "$DATE_PART" =~ [A-Za-z]{3} ]]; then
-    TODAY=$(TZ="$TIMEZONE" date "+%b %d")
+    TODAY=$(TZ="${TIMEZONE:-UTC}" date "+%b %d")
     DATE_PART="$TODAY, $DATE_PART"
   fi
 
-  # Normalizar horário "7pm" → "7:00pm"
   DATE_PART=$(echo "$DATE_PART" | sed -E 's/([0-9])([ap]m)/\1:00\2/')
 
-  TARGET=$(TZ="$TIMEZONE" date -d "$DATE_PART" +%s 2>/dev/null)
+  TARGET=$(TZ="${TIMEZONE:-UTC}" date -d "$DATE_PART" +%s 2>/dev/null || true)
 
-  if [ -z "$TARGET" ]; then
+  if [ -z "${TARGET:-}" ]; then
     echo "ERROR"
     return
   fi
@@ -83,6 +82,36 @@ fetch_open_issues() {
     --limit 500 \
     --json number \
     --jq 'sort_by(.number) | .[].number'
+}
+
+try_merge_issue_pr() {
+
+  ISSUE="$1"
+
+  PR_NUMBER=$(gh pr list \
+    --state open \
+    --search "$ISSUE" \
+    --json number \
+    --jq '.[0].number' 2>/dev/null || true)
+
+  if [ -z "${PR_NUMBER:-}" ]; then
+    echo "Nenhum PR encontrado para issue #$ISSUE"
+    return
+  fi
+
+  echo "PR encontrado: #$PR_NUMBER"
+
+  if gh pr merge "$PR_NUMBER" --squash --auto --delete-branch 2>/dev/null; then
+    echo "Merge automático configurado."
+    return
+  fi
+
+  if gh pr merge "$PR_NUMBER" --squash --delete-branch 2>/dev/null; then
+    echo "Merge realizado."
+    return
+  fi
+
+  echo "Não foi possível fazer merge do PR #$PR_NUMBER"
 }
 
 echo ""
@@ -194,10 +223,26 @@ while true; do
   STATE=$(gh issue view "$ISSUE_NUMBER" --json state --jq '.state')
 
   if [ "$STATE" = "CLOSED" ]; then
+
     echo "✓ Issue #$ISSUE_NUMBER fechada."
+
   else
-    echo "⚠ Issue não foi fechada."
-  fi
+
+    echo "Issue ainda aberta. Procurando PR..."
+
+    try_merge_issue_pr "$ISSUE_NUMBER"
+
+    sleep 3
+
+    STATE=$(gh issue view "$ISSUE_NUMBER" --json state --jq '.state')
+
+    if [ "$STATE" = "CLOSED" ]; then
+      echo "✓ Issue fechada após merge."
+    else
+      echo "⚠ Issue ainda aberta."
+    fi
+
+fi
 
   echo ""
 
