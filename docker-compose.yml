@@ -28,21 +28,19 @@ services:
       - ai-factory
 
   openclaw:
-    image: openclaw/openclaw:latest
+    image: ghcr.io/openclaw/openclaw:latest
     container_name: openclaw
     restart: always
     ports:
-      - "8080:8080"
+      - "18789:18789"
     environment:
       - GENERIC_TIMEZONE=America/Sao_Paulo
       - TZ=America/Sao_Paulo
-      - OPENCLAW_TELEGRAM_TOKEN=${OPENCLAW_TELEGRAM_TOKEN}
-      - OPENCLAW_LLM_PROVIDER=${OPENCLAW_LLM_PROVIDER:-anthropic}
-      - OPENCLAW_API_KEY=${OPENCLAW_API_KEY}
-      - OPENCLAW_ALLOW_LIST=${OPENCLAW_ALLOW_LIST}
+      - OPENCLAW_GATEWAY_BIND=lan
+      - OPENCLAW_CONFIG_DIR=/home/node/.openclaw
     volumes:
-      - openclaw_data:/home/openclaw/.openclaw
-      - ./openclaw/config.yaml:/home/openclaw/.openclaw/config.yaml:ro
+      - openclaw_config:/home/node/.openclaw
+      - openclaw_workspace:/home/node/.openclaw/workspace
     depends_on:
       - ai-factory
     networks:
@@ -52,7 +50,8 @@ volumes:
   ai_factory_home:
   claude:
   n8n_data:
-  openclaw_data:
+  openclaw_config:
+  openclaw_workspace:
 
 networks:
   ai-network:
